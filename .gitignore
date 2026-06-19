@@ -1,0 +1,8 @@
+node_modules/
+logs/
+.env
+*.log
+backups/
+.staging.*
+data/
+.DS_Store
