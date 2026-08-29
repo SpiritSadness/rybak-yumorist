@@ -1,0 +1,19 @@
+[Unit]
+Description=Fishing Humor Telegram Bot (Ryback Yumorist)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/rybak-yumorist
+EnvironmentFile=%h/rybak-yumorist/.env
+ExecStart=/usr/bin/node bot.js
+Restart=on-failure
+RestartSec=10
+
+# Logs: journalctl --user -u fishing-bot.service -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

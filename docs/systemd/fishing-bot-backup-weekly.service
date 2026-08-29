@@ -1,0 +1,9 @@
+[Unit]
+Description=Run weekly backup for Rybak Yumorist bot
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/rybak-yumorist
+EnvironmentFile=%h/rybak-yumorist/.env
+ExecStart=%h/rybak-yumorist/scripts/backup.sh weekly

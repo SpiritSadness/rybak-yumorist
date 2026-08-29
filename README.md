@@ -4,6 +4,17 @@ Telegram-бот с рыбацкими анекдотами, погодой и а
 
 Бот в Telegram: [@fishingHumorousBot](https://t.me/fishingHumorousBot)
 
+**English:** [README.en.md](./README.en.md)
+
+## Скриншоты
+
+<p align="center">
+  <img src="docs/screenshots/menu.svg" alt="Главное меню бота" width="320" />
+  <img src="docs/screenshots/joke.svg" alt="Экран анекдота" width="320" />
+</p>
+
+*UI-макеты для README; в Telegram интерфейс может немного отличаться.*
+
 ## Возможности
 
 - Анекдоты про рыбалку (пул + обновление с anekdot.ru)
@@ -62,12 +73,14 @@ services/    БД, шутки, погода, группы
 config/      расписание, города, источники
 scripts/     бэкап, watchdog, утилиты
 utils/       UI, логи, прокси
+docs/        systemd, миграция, скриншоты
 ```
 
 ## Продакшен
 
-Краткий ops-чеклист: [PRODUCTION.md](./PRODUCTION.md)  
-(systemd user units, бэкапы, watchdog).
+- [PRODUCTION.md](./PRODUCTION.md) — ops-чеклист
+- [docs/systemd/](./docs/systemd/) — примеры unit-файлов
+- [docs/MIGRATION.md](./docs/MIGRATION.md) — после `git pull` на сервере
 
 ## Замечания
 

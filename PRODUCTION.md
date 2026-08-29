@@ -78,3 +78,6 @@ systemctl --user restart fishing-bot.service
 ```bash
 node scripts/check-syntax.js
 ```
+
+Примеры systemd: [docs/systemd/README.md](./docs/systemd/README.md)  
+Миграция после обновления: [docs/MIGRATION.md](./docs/MIGRATION.md)

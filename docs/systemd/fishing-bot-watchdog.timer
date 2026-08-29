@@ -1,0 +1,10 @@
+[Unit]
+Description=Watchdog timer for Fishing Humor bot
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=3min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
