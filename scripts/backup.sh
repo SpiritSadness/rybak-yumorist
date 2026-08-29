@@ -118,12 +118,6 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 }
 
-load_env_value() {
-  local key="$1"
-  [[ -f "$ENV_FILE" ]] || return 0
-  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r"'"'" || true
-}
-
 resolve_notify_chat_id() {
   local configured
   configured="$(load_env_value BACKUP_NOTIFY_CHAT_ID)"
