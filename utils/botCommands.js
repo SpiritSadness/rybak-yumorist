@@ -20,23 +20,15 @@ function buildOptions(scope, languageCode) {
 }
 
 async function syncBotCommands(bot, log = () => {}) {
-  for (const scope of COMMAND_SCOPES) {
-    for (const languageCode of LANGUAGE_CODES) {
-      const options = buildOptions(scope, languageCode);
-      const label = `${scope.type}${languageCode ? ` (${languageCode})` : ''}`;
+  for (const languageCode of LANGUAGE_CODES) {
+    const options = buildOptions({ type: 'default' }, languageCode);
+    const label = `default${languageCode ? ` (${languageCode})` : ''}`;
 
-      try {
-        await bot.deleteMyCommands(options);
-      } catch (error) {
-        log('warn', `deleteMyCommands [${label}]:`, error.message);
-      }
-
-      try {
-        await bot.setMyCommands(BOT_COMMANDS, options);
-        log('info', `Commands set [${label}]`);
-      } catch (error) {
-        log('warn', `setMyCommands [${label}]:`, error.message);
-      }
+    try {
+      await bot.setMyCommands(BOT_COMMANDS, options);
+      log('info', `Commands set [${label}]`);
+    } catch (error) {
+      log('warn', `setMyCommands [${label}]:`, error.message);
     }
   }
 }

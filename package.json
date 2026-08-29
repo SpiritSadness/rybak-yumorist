@@ -14,6 +14,7 @@
     "backup:verify": "bash scripts/verify-backup.sh",
     "backup:verify:weekly": "bash scripts/verify-backup.sh \"$HOME/backups/rybak-yumorist/weekly/latest.tar.gz\"",
     "check:syntax": "node scripts/check-syntax.js",
+    "test:critical": "node scripts/test-critical.js",
     "watchdog": "node scripts/watchdog.js",
     "ops:disable": "bash scripts/ops-disable.sh",
     "ops:enable": "bash scripts/ops-enable.sh"
@@ -26,6 +27,7 @@
     "https-proxy-agent": "^9.0.0",
     "moment-timezone": "^0.6.1",
     "node-telegram-bot-api": "^0.67.0",
+    "sharp": "^0.33.5",
     "socks-proxy-agent": "^10.0.0"
   },
   "engines": {

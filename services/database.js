@@ -3,11 +3,17 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const logger = require('../utils/logger');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'bot.db');
+const DATA_DIR = process.env.BOT_DATA_DIR
+  ? path.resolve(process.env.BOT_DATA_DIR)
+  : path.join(__dirname, '..', 'data');
+const DB_PATH = process.env.BOT_DB_PATH
+  ? path.resolve(process.env.BOT_DB_PATH)
+  : path.join(DATA_DIR, 'bot.db');
 
 let db = null;
 let enabled = false;
+let snapshotTimer = null;
+const SNAPSHOT_DEBOUNCE_MS = 1000;
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -183,6 +189,27 @@ function exportJsonSnapshots() {
   fs.writeFileSync(votesFile, JSON.stringify(Object.fromEntries(loadUserVotesMap().entries()), null, 2), 'utf-8');
 }
 
+function scheduleJsonSnapshots() {
+  if (snapshotTimer) return;
+  snapshotTimer = setTimeout(() => {
+    snapshotTimer = null;
+    try {
+      exportJsonSnapshots();
+    } catch (error) {
+      logger.warn('SQLite snapshot export failed:', error.message);
+    }
+  }, SNAPSHOT_DEBOUNCE_MS);
+  if (typeof snapshotTimer.unref === 'function') snapshotTimer.unref();
+}
+
+function flushJsonSnapshots() {
+  if (snapshotTimer) {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = null;
+  }
+  exportJsonSnapshots();
+}
+
 function replaceAllJokes(jokes) {
   init();
   const tx = db.transaction((items) => {
@@ -207,7 +234,7 @@ function replaceAllJokes(jokes) {
     }
   });
   tx(jokes);
-  exportJsonSnapshots();
+  scheduleJsonSnapshots();
 }
 
 function upsertJokes(jokes) {
@@ -235,7 +262,7 @@ function upsertJokes(jokes) {
     }
   });
   tx(jokes);
-  if (count > 0) exportJsonSnapshots();
+  if (count > 0) scheduleJsonSnapshots();
   return count;
 }
 
@@ -262,6 +289,87 @@ function getAllGroupsMap() {
   return groups;
 }
 
+function getJokeById(jokeId) {
+  init();
+  return mapJokeRow(db.prepare('SELECT * FROM jokes WHERE id = ?').get(jokeId));
+}
+
+function updateJokeCounters(jokeId, { likesDelta = 0, dislikesDelta = 0 } = {}) {
+  init();
+  const info = db.prepare(`
+    UPDATE jokes
+    SET likes = MAX(0, likes + ?),
+        dislikes = MAX(0, dislikes + ?)
+    WHERE id = ?
+  `).run(likesDelta, dislikesDelta, jokeId);
+  if (info.changes) scheduleJsonSnapshots();
+  return info.changes > 0;
+}
+
+function markJokeSent(jokeId) {
+  init();
+  const info = db.prepare(`
+    UPDATE jokes
+    SET sent_count = sent_count + 1,
+        last_sent_at = ?
+    WHERE id = ?
+  `).run(new Date().toISOString(), jokeId);
+  if (info.changes) scheduleJsonSnapshots();
+  return info.changes > 0;
+}
+
+function applyUserVote(userId, jokeId, fromVote, toVote) {
+  init();
+  const validVotes = new Set(['like', 'dislike']);
+  if (fromVote && !validVotes.has(fromVote)) throw new Error(`Invalid previous vote: ${fromVote}`);
+  if (toVote && !validVotes.has(toVote)) throw new Error(`Invalid vote: ${toVote}`);
+
+  const tx = db.transaction(() => {
+    const likesDelta = (toVote === 'like' ? 1 : 0) - (fromVote === 'like' ? 1 : 0);
+    const dislikesDelta = (toVote === 'dislike' ? 1 : 0) - (fromVote === 'dislike' ? 1 : 0);
+    const info = db.prepare(`
+      UPDATE jokes
+      SET likes = MAX(0, likes + ?),
+          dislikes = MAX(0, dislikes + ?)
+      WHERE id = ?
+    `).run(likesDelta, dislikesDelta, jokeId);
+    if (!info.changes) return null;
+
+    if (toVote) {
+      db.prepare(`
+        INSERT INTO user_votes (user_id, joke_id, vote_type)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id, joke_id) DO UPDATE SET vote_type = excluded.vote_type
+      `).run(userId, jokeId, toVote);
+    } else {
+      db.prepare('DELETE FROM user_votes WHERE user_id = ? AND joke_id = ?').run(userId, jokeId);
+    }
+
+    return getJokeById(jokeId);
+  });
+
+  const result = tx();
+  if (result) scheduleJsonSnapshots();
+  return result;
+}
+
+function setUserVote(userId, jokeId, voteType) {
+  init();
+  db.prepare(`
+    INSERT INTO user_votes (user_id, joke_id, vote_type)
+    VALUES (?, ?, ?)
+    ON CONFLICT(user_id, joke_id) DO UPDATE SET vote_type = excluded.vote_type
+  `).run(userId, jokeId, voteType);
+  scheduleJsonSnapshots();
+}
+
+function deleteUserVote(userId, jokeId) {
+  init();
+  const info = db.prepare('DELETE FROM user_votes WHERE user_id = ? AND joke_id = ?').run(userId, jokeId);
+  if (info.changes) scheduleJsonSnapshots();
+  return info.changes > 0;
+}
+
 function upsertGroup(group) {
   init();
   db.prepare(`
@@ -275,7 +383,7 @@ function upsertGroup(group) {
     addedAt: group.addedAt || new Date().toISOString(),
     updatedAt: group.updatedAt || new Date().toISOString()
   });
-  exportJsonSnapshots();
+  scheduleJsonSnapshots();
 }
 
 function saveUserVotesMap(map) {
@@ -290,7 +398,7 @@ function saveUserVotesMap(map) {
     }
   });
   tx([...map.entries()]);
-  exportJsonSnapshots();
+  scheduleJsonSnapshots();
 }
 
 function getMeta(key) {
@@ -304,6 +412,12 @@ function setMeta(key, value) {
   db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(key, String(value));
 }
 
+function checkpoint() {
+  if (!db) return;
+  flushJsonSnapshots();
+  db.pragma('wal_checkpoint(TRUNCATE)');
+}
+
 module.exports = {
   init,
   isEnabled,
@@ -311,11 +425,20 @@ module.exports = {
   replaceAllJokes,
   upsertJokes,
   getNextJokeId,
+  getJokeById,
+  updateJokeCounters,
+  markJokeSent,
+  applyUserVote,
+  setUserVote,
+  deleteUserVote,
   getAllGroupsMap,
   upsertGroup,
   loadUserVotesMap,
   saveUserVotesMap,
   exportJsonSnapshots,
+  scheduleJsonSnapshots,
+  flushJsonSnapshots,
+  checkpoint,
   getMeta,
   setMeta,
   DB_PATH

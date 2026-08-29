@@ -26,7 +26,9 @@ function createScreens(ctx) {
 
   async function showMenu(chatId, messageId = null, { forceNew = false } = {}) {
     const inGroup = groupRegistry.isGroupChatId(chatId);
-    if (inGroup) await groupRegistry.ensureRegistered(ctx.bot, chatId);
+    if (inGroup) {
+      groupRegistry.ensureRegistered(ctx.bot, chatId).catch(() => {});
+    }
 
     const editId = forceNew ? null : (messageId ?? ctx.screenMessageByChat.get(chatId));
 

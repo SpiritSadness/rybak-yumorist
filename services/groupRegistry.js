@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const database = require('./database');
+const { withTimeout } = require('../utils/withTimeout');
 
 const DB_FILE = path.join(__dirname, '..', 'data', 'groups.json');
 
@@ -76,10 +77,13 @@ async function ensureRegistered(bot, chatId, addedBy = null) {
   if (!isGroupChatId(chatId)) return null;
 
   const key = String(chatId);
-  let title = getGroup(key)?.title || '';
+  const cached = getGroup(key);
+  if (cached?.active) return cached;
+
+  let title = cached?.title || '';
 
   try {
-    const chat = await bot.getChat(key);
+    const chat = await withTimeout(bot.getChat(key), 5000, 'getChat');
     title = chat.title || title;
   } catch {
     // keep cached title

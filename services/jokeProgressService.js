@@ -5,6 +5,9 @@ const jokeRepo = require('./jokeRepo');
 const PROGRESS_FILE = path.join(__dirname, '..', 'data', 'screen-joke-progress.json');
 const MAX_SCREENS = 500;
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const WRITE_DEBOUNCE_MS = 1000;
+let progressCache = null;
+let writeTimer = null;
 
 function ensureFile() {
   const dir = path.dirname(PROGRESS_FILE);
@@ -15,12 +18,14 @@ function ensureFile() {
 }
 
 function readDb() {
+  if (progressCache) return progressCache;
   ensureFile();
   try {
-    return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf-8'));
+    progressCache = JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf-8'));
   } catch {
-    return { screens: {} };
+    progressCache = { screens: {} };
   }
+  return progressCache;
 }
 
 function writeDb(db) {
@@ -34,7 +39,14 @@ function writeDb(db) {
 
   entries.sort((a, b) => Date.parse(b[1].updatedAt) - Date.parse(a[1].updatedAt));
   db.screens = Object.fromEntries(entries.slice(0, MAX_SCREENS));
-  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  progressCache = db;
+
+  if (writeTimer) return;
+  writeTimer = setTimeout(() => {
+    writeTimer = null;
+    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progressCache, null, 2), 'utf-8');
+  }, WRITE_DEBOUNCE_MS);
+  if (typeof writeTimer.unref === 'function') writeTimer.unref();
 }
 
 function screenKey(chatId, messageId) {

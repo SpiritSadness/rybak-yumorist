@@ -32,7 +32,7 @@ function createProxyAgent(proxyUrl) {
   if (isSocksProxy(proxyUrl)) {
     return new SocksProxyAgent(proxyUrl);
   }
-  return new HttpsProxyAgent(proxyUrl);
+  return new HttpsProxyAgent(proxyUrl, { keepAlive: true });
 }
 
 function getRequestNativeProxyOptions(proxyUrl) {
@@ -63,7 +63,7 @@ function getTelegramRequestOptionsFromAgent(agent) {
   if (!agent) {
     return { proxy: false, family: 4, timeout: 30000 };
   }
-  return { agent, proxy: false, timeout: 30000 };
+  return { agent, proxy: false, timeout: 8000 };
 }
 
 function getTelegramRequestOptionsFromRequestProxy(proxyUrl) {
@@ -78,21 +78,24 @@ function getTelegramRequestStrategies() {
 
   if (proxyUrl) {
     if (isSocksProxy(proxyUrl)) {
+      // Proxy6 и аналоги: SOCKS часто рвёт long-poll, HTTP на том же порту — стабильнее.
+      const httpUrl = proxyUrl.replace(/^socks5:\/\//i, 'http://');
+      strategies.push({
+        name: 'HTTP proxy (agent)',
+        request: getTelegramRequestOptionsFromAgent(createProxyAgent(httpUrl))
+      });
       strategies.push({
         name: 'SOCKS proxy',
         request: getTelegramRequestOptionsFromAgent(createProxyAgent(proxyUrl))
       });
     } else {
-      const requestNative = getRequestNativeProxyOptions(proxyUrl);
-      if (requestNative) {
-        strategies.push({ name: 'HTTP proxy (request)', request: requestNative });
-      }
-
+      // Proxy6: request-тunnel даёт 407, agent работает — не тратим 30s на лишнюю попытку.
       strategies.push({
         name: 'HTTP proxy (agent)',
         request: getTelegramRequestOptionsFromAgent(createProxyAgent(proxyUrl))
       });
     }
+    return strategies;
   }
 
   strategies.push({ name: 'direct (IPv4)', request: { proxy: false, family: 4, timeout: 30000 } });

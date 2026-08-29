@@ -1,4 +1,7 @@
 const logger = require('./logger');
+const { withTimeout } = require('./withTimeout');
+
+const TELEGRAM_SEND_MS = 6000;
 
 const MAX_MESSAGE_LENGTH = 3900;
 
@@ -149,12 +152,16 @@ async function renderScreen(bot, { chatId, messageId, text, keyboard }) {
 
   if (messageId) {
     try {
-      await bot.editMessageText(body, {
-        chat_id: chatId,
-        message_id: messageId,
-        parse_mode: 'HTML',
-        reply_markup: keyboard
-      });
+      await withTimeout(
+        bot.editMessageText(body, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'HTML',
+          reply_markup: keyboard
+        }),
+        TELEGRAM_SEND_MS,
+        'editMessageText'
+      );
       return messageId;
     } catch (error) {
       if (isNotModifiedError(error)) return messageId;
@@ -162,11 +169,25 @@ async function renderScreen(bot, { chatId, messageId, text, keyboard }) {
     }
   }
 
-  const sent = await bot.sendMessage(chatId, body, {
-    parse_mode: 'HTML',
-    reply_markup: keyboard
-  });
-  return sent.message_id;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      const sent = await withTimeout(
+        bot.sendMessage(chatId, body, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard
+        }),
+        TELEGRAM_SEND_MS,
+        'sendMessage'
+      );
+      return sent.message_id;
+    } catch (error) {
+      logger.warn(`sendMessage attempt ${attempt}/4:`, error?.message || error);
+      if (attempt === 4) throw error;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
+  return null;
 }
 
 function loggerFallback(error) {

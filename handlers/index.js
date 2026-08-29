@@ -2,17 +2,12 @@ const logger = require('../utils/logger');
 const groupRegistry = require('../services/groupRegistry');
 const { createVoteHandler } = require('./votes');
 
-const SLOW_ACTIONS = new Set([
-  'weather:kostroma',
-  'weather:makaryev',
-  'refresh:weather:kostroma',
-  'refresh:weather:makaryev',
-  'help:status',
-  'refresh:help:status'
-]);
+const { withTimeout } = require('../utils/withTimeout');
 
 function setupHandlers(ctx, screens) {
   const handleVote = createVoteHandler(ctx, screens);
+  const startInFlight = new Set();
+  const screenQueues = new Map();
 
   const screenHandlers = {
     menu: (chatId, messageId) => screens.showMenu(chatId, messageId),
@@ -24,9 +19,22 @@ function setupHandlers(ctx, screens) {
     about: (chatId, messageId) => screens.showAbout(chatId, messageId)
   };
 
+  async function enqueueScreen(chatId, messageId, task) {
+    const key = `${chatId}:${messageId || 'new'}`;
+    const previous = screenQueues.get(key) || Promise.resolve();
+    const current = previous.catch(() => {}).then(task);
+    screenQueues.set(key, current);
+
+    try {
+      return await current;
+    } finally {
+      if (screenQueues.get(key) === current) screenQueues.delete(key);
+    }
+  }
+
   async function runScreen(chatId, messageId, action, fn, errorKind = 'generic') {
     try {
-      await fn();
+      await enqueueScreen(chatId, messageId, fn);
     } catch (error) {
       logger.error(`Screen ${action} error:`, error);
       await ctx.showErrorScreen(chatId, messageId, errorKind);
@@ -54,10 +62,22 @@ function setupHandlers(ctx, screens) {
   });
 
   ctx.bot.onText(/\/start(@\w+)?/, async (msg) => {
+    const chatId = msg.chat?.id;
+    logger.info('/start from chat:', chatId, msg.from?.username);
+    if (!chatId || startInFlight.has(chatId)) return;
+
+    startInFlight.add(chatId);
     try {
-      await screens.showMenu(msg.chat.id, null, { forceNew: true });
+      const messageId = await withTimeout(
+        screens.showMenu(chatId, null, { forceNew: false }),
+        20000,
+        '/start showMenu'
+      );
+      logger.info('/start menu sent chat:', chatId, 'msg:', messageId);
     } catch (error) {
-      logger.error('/start error:', error);
+      logger.error('/start error:', error?.message || error);
+    } finally {
+      startInFlight.delete(chatId);
     }
   });
 
@@ -75,27 +95,35 @@ function setupHandlers(ctx, screens) {
     const messageId = query.message?.message_id;
     const action = query.data;
 
-    if (!chatId || !messageId) {
-      await ctx.bot.answerCallbackQuery(query.id);
+    // One callback query must be answered exactly once. Screen rendering runs
+    // concurrently, so the Telegram spinner is cleared as early as possible.
+    const ackOptions = action?.startsWith('like:') || action?.startsWith('dislike:')
+      ? { text: 'Сохраняю голос…' }
+      : undefined;
+    void ctx.bot.answerCallbackQuery(query.id, ackOptions).catch((error) => {
+      logger.warn('answerCallbackQuery failed:', error.message);
+    });
+
+    logger.info('callback:', action, 'chat:', chatId);
+
+    if (!chatId || !messageId || typeof action !== 'string') {
       return;
     }
 
     if (action.startsWith('like:') || action.startsWith('dislike:')) {
       const [kind, idRaw] = action.split(':');
       const jokeId = Number.parseInt(idRaw, 10);
-      await handleVote(query, jokeId, kind);
+      await enqueueScreen(chatId, messageId, () => handleVote(query, jokeId, kind));
       return;
     }
 
     if (action.startsWith('refresh:weather:')) {
       const cityId = action.slice('refresh:weather:'.length);
-      await ctx.bot.answerCallbackQuery(query.id, { text: '🔄 Обновляю…' });
       await runScreen(chatId, messageId, action, () => screens.showWeatherCity(chatId, messageId, cityId, true), 'weather');
       return;
     }
 
     if (action === 'refresh:help:status') {
-      await ctx.bot.answerCallbackQuery(query.id, { text: '🔄 Обновляю…' });
       await runScreen(
         chatId,
         messageId,
@@ -111,13 +139,8 @@ function setupHandlers(ctx, screens) {
       const userId = query.from?.id;
 
       if (section !== 'status' && section !== 'setup') {
-        await ctx.bot.answerCallbackQuery(query.id, { text: 'Неизвестный раздел' });
         return;
       }
-
-      await ctx.bot.answerCallbackQuery(query.id, SLOW_ACTIONS.has(action)
-        ? { text: '⏳ Загружаю…' }
-        : undefined);
 
       const kind = section === 'status' ? 'status' : 'generic';
       await runScreen(
@@ -134,16 +157,12 @@ function setupHandlers(ctx, screens) {
 
     if (action.startsWith('weather:')) {
       const cityId = action.slice('weather:'.length);
-      await ctx.bot.answerCallbackQuery(query.id, SLOW_ACTIONS.has(action)
-        ? { text: '⏳ Загружаю…' }
-        : undefined);
       await runScreen(chatId, messageId, action, () => screens.showWeatherCity(chatId, messageId, cityId, false), 'weather');
       return;
     }
 
     if (action.startsWith('refresh:')) {
       const screen = action.slice('refresh:'.length);
-      await ctx.bot.answerCallbackQuery(query.id, { text: '🔄 Обновляю…' });
 
       if (screen === 'top') {
         await runScreen(chatId, messageId, action, () => screens.showTop(chatId, messageId), 'top');
@@ -155,16 +174,11 @@ function setupHandlers(ctx, screens) {
 
     const handler = screenHandlers[action];
     if (!handler) {
-      await ctx.bot.answerCallbackQuery(query.id, { text: 'Неизвестная кнопка' });
+      logger.warn('Unknown callback action:', action);
       return;
     }
 
     const userId = query.from?.id;
-
-    await ctx.bot.answerCallbackQuery(query.id, SLOW_ACTIONS.has(action)
-      ? { text: '⏳ Загружаю…' }
-      : undefined);
-
     const errorKind = action === 'schedule' ? 'schedule' : 'generic';
     await runScreen(chatId, messageId, action, () => handler(chatId, messageId, userId, chatId), errorKind);
   });

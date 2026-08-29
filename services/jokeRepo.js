@@ -16,6 +16,7 @@ const VOTES_FILE = path.join(DB_DIR, 'user-votes.json');
 const JOKE_OF_DAY_FILE = path.join(DB_DIR, 'joke-of-day.json');
 
 const JOKE_OF_DAY_CACHE_MS = 24 * 60 * 60 * 1000;
+let jokeCache = null;
 
 function ensureDb() {
   if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
@@ -34,12 +35,15 @@ function hashText(text) {
 function readDb() {
   ensureDb();
   database.init();
+  if (jokeCache) return { jokes: jokeCache };
+
+  jokeCache = database.getAllJokes().map((j) => ({
+    ...j,
+    likes: Number.isFinite(j.likes) ? j.likes : 0,
+    dislikes: Number.isFinite(j.dislikes) ? j.dislikes : 0
+  }));
   return {
-    jokes: database.getAllJokes().map((j) => ({
-      ...j,
-      likes: Number.isFinite(j.likes) ? j.likes : 0,
-      dislikes: Number.isFinite(j.dislikes) ? j.dislikes : 0
-    }))
+    jokes: jokeCache
   };
 }
 
@@ -47,6 +51,7 @@ function writeDb(db) {
   ensureDb();
   database.init();
   database.replaceAllJokes(db.jokes || []);
+  jokeCache = null;
 }
 
 function buildJokeRecord(id, text, source, prevVotes = null) {
@@ -187,13 +192,9 @@ function sanitizeRepo({ limit = Infinity } = {}) {
 }
 
 async function markSent(jokeId) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
-  db.jokes[idx].sentCount += 1;
-  db.jokes[idx].lastSentAt = new Date().toISOString();
-  writeDb(db);
-  return true;
+  const changed = database.markJokeSent(jokeId);
+  if (changed) jokeCache = null;
+  return changed;
 }
 
 function getAllJokes() {
@@ -213,7 +214,7 @@ function getVoteScore(joke) {
 }
 
 function getJokeById(jokeId) {
-  return readDb().jokes.find((j) => j.id === jokeId) || null;
+  return database.getJokeById(jokeId);
 }
 
 function loadJokeOfDayState() {
@@ -282,21 +283,15 @@ function getTopJokes(limit = 10) {
 }
 
 function likeJoke(jokeId) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
-  db.jokes[idx].likes = (db.jokes[idx].likes || 0) + 1;
-  writeDb(db);
-  return true;
+  const changed = database.updateJokeCounters(jokeId, { likesDelta: 1 });
+  if (changed) jokeCache = null;
+  return changed;
 }
 
 function dislikeJoke(jokeId) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
-  db.jokes[idx].dislikes = (db.jokes[idx].dislikes || 0) + 1;
-  writeDb(db);
-  return true;
+  const changed = database.updateJokeCounters(jokeId, { dislikesDelta: 1 });
+  if (changed) jokeCache = null;
+  return changed;
 }
 
 function getTopJokesByLikes(limit = 5, excludeJokeId = null) {
@@ -356,7 +351,7 @@ function hasUserVoted(userId, jokeId) {
 
 function markUserVoted(userId, jokeId, voteType) {
   userVotes.set(`${userId}_${jokeId}`, voteType);
-  saveUserVotes();
+  database.setUserVote(userId, jokeId, voteType);
 }
 
 function getUserVote(userId, jokeId) {
@@ -365,40 +360,43 @@ function getUserVote(userId, jokeId) {
 
 function removeUserVote(userId, jokeId) {
   userVotes.delete(`${userId}_${jokeId}`);
-  saveUserVotes();
+  database.deleteUserVote(userId, jokeId);
 }
 
 function removeLike(jokeId) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
-  db.jokes[idx].likes = Math.max(0, (db.jokes[idx].likes || 0) - 1);
-  writeDb(db);
-  return true;
+  const changed = database.updateJokeCounters(jokeId, { likesDelta: -1 });
+  if (changed) jokeCache = null;
+  return changed;
 }
 
 function removeDislike(jokeId) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
-  db.jokes[idx].dislikes = Math.max(0, (db.jokes[idx].dislikes || 0) - 1);
-  writeDb(db);
-  return true;
+  const changed = database.updateJokeCounters(jokeId, { dislikesDelta: -1 });
+  if (changed) jokeCache = null;
+  return changed;
 }
 
 function changeVote(jokeId, fromVote, toVote) {
-  const db = readDb();
-  const idx = db.jokes.findIndex((j) => j.id === jokeId);
-  if (idx === -1) return false;
+  const deltas = {
+    likesDelta: (toVote === 'like' ? 1 : 0) - (fromVote === 'like' ? 1 : 0),
+    dislikesDelta: (toVote === 'dislike' ? 1 : 0) - (fromVote === 'dislike' ? 1 : 0)
+  };
+  const changed = database.updateJokeCounters(jokeId, deltas);
+  if (changed) jokeCache = null;
+  return changed;
+}
 
-  if (fromVote === 'like') db.jokes[idx].likes = Math.max(0, (db.jokes[idx].likes || 0) - 1);
-  else if (fromVote === 'dislike') db.jokes[idx].dislikes = Math.max(0, (db.jokes[idx].dislikes || 0) - 1);
+function applyUserVote(userId, jokeId, voteType) {
+  const key = `${userId}_${jokeId}`;
+  const existing = userVotes.get(key) || null;
+  const nextVote = existing === voteType ? null : voteType;
+  const joke = database.applyUserVote(userId, jokeId, existing, nextVote);
+  if (!joke) return { joke: null, vote: existing, removed: false };
+  jokeCache = null;
 
-  if (toVote === 'like') db.jokes[idx].likes = (db.jokes[idx].likes || 0) + 1;
-  else if (toVote === 'dislike') db.jokes[idx].dislikes = (db.jokes[idx].dislikes || 0) + 1;
+  if (nextVote) userVotes.set(key, nextVote);
+  else userVotes.delete(key);
 
-  writeDb(db);
-  return true;
+  return { joke, vote: nextVote, removed: !nextVote };
 }
 
 module.exports = {
@@ -435,5 +433,6 @@ module.exports = {
   removeUserVote,
   removeLike,
   removeDislike,
-  changeVote
+  changeVote,
+  applyUserVote
 };

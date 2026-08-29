@@ -12,12 +12,20 @@ WATCHDOG_TIMER="fishing-bot-watchdog.timer"
 
 echo "=== Отключение ops (бэкап + watchdog) ==="
 
+disable_timer() {
+  local unit="$1"
+  if systemctl list-unit-files "$unit" &>/dev/null 2>&1; then
+    systemctl disable --now "$unit" 2>/dev/null || true
+    echo "  timer off: $unit"
+  elif systemctl --user list-unit-files "$unit" &>/dev/null 2>&1; then
+    systemctl --user disable --now "$unit" 2>/dev/null || true
+    echo "  timer off (user): $unit"
+  fi
+}
+
 if command -v systemctl >/dev/null 2>&1; then
   for unit in "$BACKUP_TIMER" "$BACKUP_WEEKLY_TIMER" "$WATCHDOG_TIMER"; do
-    if systemctl --user list-unit-files "$unit" &>/dev/null; then
-      systemctl --user disable --now "$unit" 2>/dev/null || true
-      echo "  timer off: $unit"
-    fi
+    disable_timer "$unit"
   done
 else
   echo "  systemctl не найден — таймеры пропущены"
