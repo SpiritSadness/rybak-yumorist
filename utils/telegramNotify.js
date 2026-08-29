@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 const { getTelegramRequestStrategies, formatConnectionError } = require('./proxy');
+const { isTelegramNotifyEnabled } = require('./notifyConfig');
 
 const GROUPS_FILE = path.join(__dirname, '..', 'data', 'groups.json');
 const CACHE_FILE = path.join(__dirname, '..', 'data', 'backup-notify.json');
@@ -83,6 +84,11 @@ async function resolveNotifyChatId(bot) {
 }
 
 async function sendTelegramNotify(text, { parseMode = 'HTML' } = {}) {
+  if (!isTelegramNotifyEnabled()) {
+    console.log('Telegram notify skipped (disabled or no recipient)');
+    return null;
+  }
+
   const bot = await connectBot();
   const chatId = await resolveNotifyChatId(bot);
   if (!chatId) {

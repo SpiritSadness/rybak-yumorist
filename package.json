@@ -14,7 +14,9 @@
     "backup:verify": "bash scripts/verify-backup.sh",
     "backup:verify:weekly": "bash scripts/verify-backup.sh \"$HOME/backups/rybak-yumorist/weekly/latest.tar.gz\"",
     "check:syntax": "node scripts/check-syntax.js",
-    "watchdog": "node scripts/watchdog.js"
+    "watchdog": "node scripts/watchdog.js",
+    "ops:disable": "bash scripts/ops-disable.sh",
+    "ops:enable": "bash scripts/ops-enable.sh"
   },
   "dependencies": {
     "axios": "^1.7.7",

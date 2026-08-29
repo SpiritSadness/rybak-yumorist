@@ -7,6 +7,7 @@ const moment = require('moment-timezone');
 require('moment/locale/ru');
 const TelegramBot = require('node-telegram-bot-api');
 const { getTelegramRequestStrategies, formatConnectionError } = require('../utils/proxy');
+const { isTelegramNotifyEnabled } = require('../utils/notifyConfig');
 
 const BOT_DIR = path.join(__dirname, '..');
 const GROUPS_FILE = path.join(BOT_DIR, 'data', 'groups.json');
@@ -335,6 +336,12 @@ async function connectBot() {
 
 async function main() {
   const report = loadReport();
+
+  if (!isTelegramNotifyEnabled()) {
+    console.log('Backup report skipped (notify disabled or no recipient)');
+    return;
+  }
+
   const bot = await connectBot();
   const chatId = await resolveChatId(bot);
 

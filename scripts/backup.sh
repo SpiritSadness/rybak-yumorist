@@ -33,6 +33,51 @@ LAST_ARCHIVE_NAME=""
 LAST_ARCHIVE_SIZE=""
 LAST_ARCHIVE_FILES=""
 
+load_env_value() {
+  local key="$1"
+  [[ -f "$ENV_FILE" ]] || return 0
+  grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r"'"'" || true
+}
+
+apply_env_overrides() {
+  local env_root
+  env_root="$(load_env_value BACKUP_ROOT)"
+  if [[ -n "$env_root" ]]; then
+    BACKUP_ROOT="$env_root"
+    BACKUP_DIR="${BACKUP_ROOT}/daily"
+    WEEKLY_DIR="${BACKUP_ROOT}/weekly"
+    MONTHLY_DIR="${BACKUP_ROOT}/monthly"
+    DATA_DIR="${BACKUP_ROOT}/data"
+    LOG_DIR="${BACKUP_ROOT}/logs"
+    LOCK_FILE="${BACKUP_ROOT}/.backup.lock"
+    STATUS_FILE="${BACKUP_ROOT}/status.json"
+  fi
+}
+
+is_backup_enabled() {
+  local v
+  v="$(load_env_value BACKUP_ENABLED)"
+  [[ "$v" != "false" && "$v" != "0" && "$v" != "no" && "$v" != "off" ]]
+}
+
+is_telegram_notify_enabled() {
+  local v
+  v="$(load_env_value TELEGRAM_NOTIFY_ENABLED)"
+  [[ "$v" == "false" || "$v" == "0" || "$v" == "no" || "$v" == "off" ]] && return 1
+  v="$(load_env_value BACKUP_NOTIFY_ENABLED)"
+  [[ "$v" == "false" || "$v" == "0" || "$v" == "no" || "$v" == "off" ]] && return 1
+  [[ -n "$(load_env_value BACKUP_NOTIFY_CHAT_ID)" ]] && return 0
+  [[ -n "$(load_env_value BACKUP_NOTIFY_USERNAME)" ]] && return 0
+  return 1
+}
+
+apply_env_overrides
+
+if ! is_backup_enabled; then
+  echo "backup: skipped (BACKUP_ENABLED=false in .env)"
+  exit 0
+fi
+
 mkdir -p "$BACKUP_DIR" "$WEEKLY_DIR" "$MONTHLY_DIR" "$DATA_DIR" "$LOG_DIR"
 
 rotate_log() {
@@ -130,6 +175,10 @@ disk_free_gb() {
 
 send_telegram_report() {
   local payload="$1"
+  if ! is_telegram_notify_enabled; then
+    log "Telegram report skipped (notify disabled or no recipient)"
+    return 0
+  fi
   if ! command -v node >/dev/null 2>&1; then
     log "WARN: node not found, telegram report skipped"
     return 0

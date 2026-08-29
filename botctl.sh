@@ -5,6 +5,8 @@ BOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="fishing-bot.service"
 WATCHDOG_SERVICE="fishing-bot-watchdog.service"
 WATCHDOG_TIMER="fishing-bot-watchdog.timer"
+BACKUP_TIMER="fishing-bot-backup.timer"
+BACKUP_WEEKLY_TIMER="fishing-bot-backup-weekly.timer"
 LOG_FILE="${BOT_DIR}/logs/bot.log"
 ERROR_LOG="${BOT_DIR}/logs/error.log"
 BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/rybak-yumorist}"
@@ -366,6 +368,22 @@ do_test_watchdog() {
   pause
 }
 
+do_disable_ops() {
+  header
+  echo "${BOLD}Отключить бэкапы + watchdog + алерты в TG${RESET}"
+  echo "────────────────────────────────────────"
+  bash "${BOT_DIR}/scripts/ops-disable.sh"
+  pause
+}
+
+do_enable_ops() {
+  header
+  echo "${BOLD}Включить бэкапы + watchdog${RESET}"
+  echo "────────────────────────────────────────"
+  bash "${BOT_DIR}/scripts/ops-enable.sh"
+  pause
+}
+
 show_menu() {
   echo "${BOLD}Меню${RESET}"
   echo "  ${CYAN}1)${RESET}  Статус (подробно)"
@@ -384,6 +402,8 @@ show_menu() {
   echo "  ${CYAN}14)${RESET} Открыть папку проекта"
   echo "  ${CYAN}15)${RESET} Включить watchdog (алерт в TG)"
   echo "  ${CYAN}16)${RESET} Тест watchdog сейчас"
+  echo "  ${CYAN}17)${RESET} ${YELLOW}Отключить бэкапы и алерты${RESET}"
+  echo "  ${CYAN}18)${RESET} Включить бэкапы и watchdog"
   echo "  ${CYAN}0)${RESET}  Выход"
   echo
 }
@@ -420,6 +440,8 @@ main() {
       14) do_open_folder ;;
       15) do_enable_watchdog ;;
       16) do_test_watchdog ;;
+      17) do_disable_ops ;;
+      18) do_enable_ops ;;
       0|q|Q|exit|выход) clear; echo "Пока! 🎣"; exit 0 ;;
       *) echo "${YELLOW}Неизвестный пункт: ${choice}${RESET}"; pause ;;
     esac

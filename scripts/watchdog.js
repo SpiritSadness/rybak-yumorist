@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { sendTelegramNotify } = require('../utils/telegramNotify');
+const { isWatchdogEnabled } = require('../utils/notifyConfig');
 
 const SERVICE_NAME = process.env.BOT_SERVICE_NAME || 'fishing-bot.service';
 const STATE_FILE = path.join(__dirname, '..', 'data', 'watchdog-state.json');
@@ -41,6 +42,11 @@ function serviceMainPid() {
 }
 
 async function main() {
+  if (!isWatchdogEnabled()) {
+    console.log('SKIP: WATCHDOG_ENABLED=false');
+    return;
+  }
+
   const state = loadState();
   const now = Date.now();
   const active = serviceState() === 'active';

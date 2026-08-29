@@ -81,6 +81,7 @@ docs/        systemd, миграция, скриншоты
 - [PRODUCTION.md](./PRODUCTION.md) — ops-чеклист
 - [docs/systemd/](./docs/systemd/) — примеры unit-файлов
 - [docs/MIGRATION.md](./docs/MIGRATION.md) — после `git pull` на сервере
+- [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — ошибки бэкапа / алерты после смены сервера
 
 ## Замечания
 
