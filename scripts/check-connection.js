@@ -62,7 +62,7 @@ async function checkGroups(requestOptions) {
 async function main() {
   console.log('Проверка подключения к Telegram API\n');
   console.log('Прокси из .env:', getProxyUrl() || '(не задан)');
-  console.log('Happ VPN: убедись что VPN подключён (зелёная галочка в Happ)\n');
+  console.log('Если Telegram блокируется — включи VPN или SOCKS_PROXY в .env\n');
 
   const strategies = getTelegramRequestStrategies();
   let tokenError = false;

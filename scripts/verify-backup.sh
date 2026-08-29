@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BACKUP_ROOT="/home/andreyzabrodin/PC/4/backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ARCHIVE_NAME="${ARCHIVE_NAME:-rybak-yumorist}"
+BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/rybak-yumorist}"
 TARGET="${1:-$BACKUP_ROOT/daily/latest.tar.gz}"
 
 if [[ -L "$TARGET" ]]; then
@@ -25,11 +28,11 @@ tar -tzf "$TARGET" >/dev/null
 echo "Archive listing OK"
 
 required=(
-  fishing-bot-new/bot.js
-  fishing-bot-new/package.json
-  fishing-bot-new/.env
-  fishing-bot-new/data/jokes.json
-  fishing-bot-new/data/groups.json
+  "${ARCHIVE_NAME}/bot.js"
+  "${ARCHIVE_NAME}/package.json"
+  "${ARCHIVE_NAME}/.env"
+  "${ARCHIVE_NAME}/data/jokes.json"
+  "${ARCHIVE_NAME}/data/groups.json"
 )
 
 missing=0

@@ -88,15 +88,18 @@ async function resolveChatId(bot) {
     return String(process.env.BACKUP_NOTIFY_CHAT_ID);
   }
 
-  const username = (process.env.BACKUP_NOTIFY_USERNAME || 'andrey720p').replace(/^@/, '');
-  try {
-    const chat = await bot.getChat(`@${username}`);
-    if (chat?.id) {
-      saveCachedChatId(chat.id, username);
-      return String(chat.id);
+  const rawUsername = process.env.BACKUP_NOTIFY_USERNAME;
+  if (rawUsername) {
+    const username = rawUsername.replace(/^@/, '');
+    try {
+      const chat = await bot.getChat(`@${username}`);
+      if (chat?.id) {
+        saveCachedChatId(chat.id, username);
+        return String(chat.id);
+      }
+    } catch {
+      // user may not have opened bot yet
     }
-  } catch {
-    // user may not have opened bot yet
   }
 
   return loadCachedChatId() || loadFallbackChatId();
@@ -258,7 +261,12 @@ function formatSuccessReport(report) {
     lines.push(line);
   }
   lines.push('');
-  lines.push(`ℹ️ ${info.schedule} · отчёт для @${escapeHtml((process.env.BACKUP_NOTIFY_USERNAME || 'andrey720p').replace(/^@/, ''))}`);
+  const notifyUser = (process.env.BACKUP_NOTIFY_USERNAME || '').replace(/^@/, '');
+  if (notifyUser) {
+    lines.push(`ℹ️ ${info.schedule} · отчёт для @${escapeHtml(notifyUser)}`);
+  } else {
+    lines.push(`ℹ️ ${info.schedule}`);
+  }
 
   return lines.join('\n');
 }
@@ -285,7 +293,7 @@ function formatFailureReport(report) {
   lines.push(section('Что проверить'));
   lines.push('');
   lines.push('1. Свободное место на диске');
-  lines.push('2. Лог: <code>~/PC/4/backups/logs/backup.log</code>');
+  lines.push('2. Лог бэкапа (см. BACKUP_ROOT/logs/backup.log)');
   lines.push('3. Запуск вручную: <code>npm run backup</code>');
 
   if (report.diskFreeGb) {

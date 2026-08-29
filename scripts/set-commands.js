@@ -44,7 +44,7 @@ async function main() {
     }
   }
 
-  console.error('\n❌ Не удалось подключиться к Telegram. Проверьте VPN (Happ) и BOT_TOKEN.');
+  console.error('\n❌ Не удалось подключиться к Telegram. Проверьте сеть/прокси и BOT_TOKEN.');
   process.exit(1);
 }
 

@@ -12,7 +12,7 @@
     "backup": "bash scripts/backup.sh daily",
     "backup:weekly": "bash scripts/backup.sh weekly",
     "backup:verify": "bash scripts/verify-backup.sh",
-    "backup:verify:weekly": "bash scripts/verify-backup.sh /home/andreyzabrodin/PC/4/backups/weekly/latest.tar.gz",
+    "backup:verify:weekly": "bash scripts/verify-backup.sh \"$HOME/backups/rybak-yumorist/weekly/latest.tar.gz\"",
     "check:syntax": "node scripts/check-syntax.js",
     "watchdog": "node scripts/watchdog.js"
   },

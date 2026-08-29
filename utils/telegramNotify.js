@@ -65,15 +65,18 @@ async function resolveNotifyChatId(bot) {
     return String(process.env.BACKUP_NOTIFY_CHAT_ID);
   }
 
-  const username = (process.env.BACKUP_NOTIFY_USERNAME || 'andrey720p').replace(/^@/, '');
-  try {
-    const chat = await bot.getChat(`@${username}`);
-    if (chat?.id) {
-      saveCachedChatId(chat.id, username);
-      return String(chat.id);
+  const rawUsername = process.env.BACKUP_NOTIFY_USERNAME;
+  if (rawUsername) {
+    const username = rawUsername.replace(/^@/, '');
+    try {
+      const chat = await bot.getChat(`@${username}`);
+      if (chat?.id) {
+        saveCachedChatId(chat.id, username);
+        return String(chat.id);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
 
   return loadCachedChatId() || loadFallbackChatId();

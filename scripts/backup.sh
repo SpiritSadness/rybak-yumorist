@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BOT_DIR="/home/andreyzabrodin/PC/4/fishing-bot-new"
-BACKUP_ROOT="/home/andreyzabrodin/PC/4/backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BOT_DIR="${BOT_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+ARCHIVE_NAME="${ARCHIVE_NAME:-rybak-yumorist}"
+BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/rybak-yumorist}"
 BACKUP_DIR="${BACKUP_ROOT}/daily"
 WEEKLY_DIR="${BACKUP_ROOT}/weekly"
 MONTHLY_DIR="${BACKUP_ROOT}/monthly"
@@ -181,10 +183,10 @@ payload = {
     "dataSize": data_size or None,
     "monthlyCreated": str(monthly_created) == "1",
     "monthlyName": monthly_name or None,
-    "dailyCount": count_files(daily_dir, "fishing-bot-new_*.tar.gz"),
-    "weeklyCount": count_files(weekly_dir, "fishing-bot-new_*.tar.gz"),
+    "dailyCount": count_files(daily_dir, "${ARCHIVE_NAME}_*.tar.gz"),
+    "weeklyCount": count_files(weekly_dir, "${ARCHIVE_NAME}_*.tar.gz"),
     "dataCount": count_files(data_dir, "data_*.tar.gz"),
-    "monthlyCount": count_files(monthly_dir, "fishing-bot-new_*.tar.gz"),
+    "monthlyCount": count_files(monthly_dir, "${ARCHIVE_NAME}_*.tar.gz"),
     "diskFreeGb": None,
 }
 
@@ -313,7 +315,7 @@ ensure_monthly_copy() {
   local source_archive="$1"
   local month_key
   month_key="$(date '+%Y-%m')"
-  local monthly_archive="${MONTHLY_DIR}/fishing-bot-new_${month_key}.tar.gz"
+  local monthly_archive="${MONTHLY_DIR}/${ARCHIVE_NAME}_${month_key}.tar.gz"
 
   if [[ -f "$monthly_archive" ]]; then
     MONTHLY_NAME="$(basename "$monthly_archive")"
@@ -352,12 +354,12 @@ rotate_monthly() {
   local old month_key
 
   while IFS= read -r old; do
-    month_key="$(basename "$old" | sed -n 's/^fishing-bot-new_\([0-9]\{4\}-[0-9]\{2\}\)\.tar\.gz$/\1/p')"
+    month_key="$(basename "$old" | sed -n "s/^${ARCHIVE_NAME}_\([0-9]\{4\}-[0-9]\{2\}\)\.tar\.gz$/\1/p")"
     if [[ -n "$month_key" && "$month_key" < "$cutoff_month" ]]; then
       rm -f "$old" "${old}.sha256"
       deleted=$((deleted + 1))
     fi
-  done < <(find "$MONTHLY_DIR" -maxdepth 1 -type f -name 'fishing-bot-new_*.tar.gz' | sort)
+  done < <(find "$MONTHLY_DIR" -maxdepth 1 -type f -name "${ARCHIVE_NAME}_*.tar.gz" | sort)
 
   if (( deleted > 0 )); then
     log "ROTATE monthly: removed ${deleted} archive(s)"
@@ -415,7 +417,7 @@ run_backup_once() {
   stamp="$(date '+%Y-%m-%d_%H-%M-%S')"
   archive="${target_dir}/${prefix}_${stamp}.tar.gz"
   STAGING_DIR="$(mktemp -d "${BACKUP_ROOT}/.staging.XXXXXX")"
-  staging_bot="${STAGING_DIR}/fishing-bot-new"
+  staging_bot="${STAGING_DIR}/${ARCHIVE_NAME}"
 
   if ! rsync_bot_snapshot "$staging_bot" "$full"; then
     cleanup_staging
@@ -484,7 +486,7 @@ while (( attempt <= RETRIES )); do
     sleep "$RETRY_DELAY_SEC"
   fi
 
-  if run_backup_once "$TARGET_DIR" "fishing-bot-new" "$FULL"; then
+  if run_backup_once "$TARGET_DIR" "${ARCHIVE_NAME}" "$FULL"; then
     success=1
     break
   fi
@@ -498,8 +500,8 @@ fi
 
 mirror_backup
 
-rotate_files "$BACKUP_DIR" 'fishing-bot-new_*.tar.gz' "$RETAIN_DAILY"
-rotate_files "$WEEKLY_DIR" 'fishing-bot-new_*.tar.gz' "$((RETAIN_WEEKLY * 7))"
+rotate_files "$BACKUP_DIR" "${ARCHIVE_NAME}_*.tar.gz" "$RETAIN_DAILY"
+rotate_files "$WEEKLY_DIR" "${ARCHIVE_NAME}_*.tar.gz" "$((RETAIN_WEEKLY * 7))"
 rotate_files "$DATA_DIR" 'data_*.tar.gz' "$RETAIN_DATA"
 rotate_monthly
 log "DONE mode=${MODE}"

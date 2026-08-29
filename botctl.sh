@@ -7,7 +7,8 @@ WATCHDOG_SERVICE="fishing-bot-watchdog.service"
 WATCHDOG_TIMER="fishing-bot-watchdog.timer"
 LOG_FILE="${BOT_DIR}/logs/bot.log"
 ERROR_LOG="${BOT_DIR}/logs/error.log"
-BACKUP_STATUS="${BOT_DIR%/fishing-bot-new}/backups/status.json"
+BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/rybak-yumorist}"
+BACKUP_STATUS="${BACKUP_ROOT}/status.json"
 
 if [[ "${BOT_DIR}" == *"/scripts" ]]; then
   BOT_DIR="$(cd "${BOT_DIR}/.." && pwd)"
@@ -353,7 +354,7 @@ do_enable_watchdog() {
   echo "────────────────────────────────────────"
   systemctl --user enable --now "$WATCHDOG_TIMER"
   echo "${GREEN}✓ Таймер включён: ${WATCHDOG_TIMER}${RESET}"
-  echo "  Проверка каждые 3 минуты, алерт @andrey720p"
+  echo "  Проверка каждые 3 минуты, алерт в Telegram (BACKUP_NOTIFY_*)"
   pause
 }
 
