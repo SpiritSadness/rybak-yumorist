@@ -18,6 +18,7 @@ npm start
 | Команда | Зачем |
 |---------|--------|
 | `npm start` | Запустить бота |
+| `npm run test:critical` | Быстрая проверка polling, callback и SQLite hot path |
 | `npm run check:connection` | Проверить токен и сеть |
 | `npm run set:commands` | Обновить команды в Telegram |
 | `./botctl.sh` | Меню управления (Linux) |
@@ -25,7 +26,7 @@ npm start
 
 ## Настройки (.env)
 
-Смотри `.env.example`. Главное — `BOT_TOKEN`. Остальное опционально (прокси, бэкапы, уведомления).
+Смотри `.env.example`. Главное — `BOT_TOKEN`. Для нестабильной сети используй `HTTP_PROXY`; polling/reconnect/schedule настройки тоже вынесены в env.
 
 ## Структура проекта
 
@@ -42,6 +43,13 @@ scripts/     бэкап, watchdog
 - [systemd примеры](./systemd/README.md)
 - [После обновления кода](./MIGRATION.md)
 - [Если сыпятся ошибки бэкапа](./TROUBLESHOOTING.md)
+
+Минимальная проверка после обновления:
+
+```bash
+npm run check:syntax
+npm run test:critical
+```
 
 ## Стек
 

@@ -28,6 +28,7 @@ loginctl enable-linger "$USER"
 - Панель: `./botctl.sh`
 - Не запускай `npm start` параллельно с systemd — будет конфликт 409
 - Перезапуск: `./botctl.sh restart`
+- После правок перед рестартом: `npm run check:syntax && npm run test:critical`
 
 ## Данные
 
@@ -59,7 +60,10 @@ Watchdog шлёт алерт получателю из `BACKUP_NOTIFY_*`, есл
 cd /path/to/rybak-yumorist
 git pull
 npm install
+npm run check:syntax
+npm run test:critical
 systemctl --user restart fishing-bot.service
+journalctl --user -u fishing-bot.service -n 50 --no-pager
 ```
 
 ## Переменные окружения
@@ -72,11 +76,20 @@ systemctl --user restart fishing-bot.service
 | `BACKUP_ROOT` | Корень бэкапов |
 | `BACKUP_MIRROR_PATH` | Зеркало бэкапов |
 | `WATCHDOG_COOLDOWN_MS` | Интервал между алертами |
+| `HTTP_PROXY` | HTTP-прокси для Telegram/API |
+| `TELEGRAM_RECONNECT_MS` | Интервал reconnect health-check |
+| `TELEGRAM_POLL_STALE_MS` | Когда polling считается зависшим |
+| `TELEGRAM_STARTUP_RETRY_MS` | Задержка между retry на старте |
+| `SCHEDULE_CATCHUP_MINUTES` | Окно догоняющей рассылки |
+| `SCHEDULE_QUIET_AFTER_HOUR` | После какого часа не догонять дневные слоты |
+| `SCHEDULE_BACKFILL` | Включать ли backfill при старте |
+| `OUTBOX_RETRY_MS` | Интервал retry очереди исходящих |
 
 ## Git / CI
 
 ```bash
 node scripts/check-syntax.js
+node scripts/test-critical.js
 ```
 
 Примеры systemd: [docs/systemd/README.md](./docs/systemd/README.md)  

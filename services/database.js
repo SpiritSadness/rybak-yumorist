@@ -289,6 +289,33 @@ function getAllGroupsMap() {
   return groups;
 }
 
+function getGroup(chatId) {
+  init();
+  const row = db.prepare('SELECT * FROM groups WHERE chat_id = ?').get(String(chatId));
+  if (!row) return null;
+  return {
+    chatId: row.chat_id,
+    title: row.title || '',
+    addedBy: row.added_by,
+    active: Boolean(row.active),
+    addedAt: row.added_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function getActiveGroups() {
+  init();
+  const rows = db.prepare('SELECT * FROM groups WHERE active = 1 ORDER BY updated_at DESC, chat_id ASC').all();
+  return rows.map((row) => ({
+    chatId: row.chat_id,
+    title: row.title || '',
+    addedBy: row.added_by,
+    active: Boolean(row.active),
+    addedAt: row.added_at,
+    updatedAt: row.updated_at
+  }));
+}
+
 function getJokeById(jokeId) {
   init();
   return mapJokeRow(db.prepare('SELECT * FROM jokes WHERE id = ?').get(jokeId));
@@ -386,6 +413,19 @@ function upsertGroup(group) {
   scheduleJsonSnapshots();
 }
 
+function setGroupActive(chatId, active) {
+  init();
+  const key = String(chatId);
+  const info = db.prepare(`
+    UPDATE groups
+    SET active = ?,
+        updated_at = ?
+    WHERE chat_id = ?
+  `).run(active ? 1 : 0, new Date().toISOString(), key);
+  if (info.changes) scheduleJsonSnapshots();
+  return info.changes > 0;
+}
+
 function saveUserVotesMap(map) {
   init();
   const tx = db.transaction((entries) => {
@@ -432,7 +472,10 @@ module.exports = {
   setUserVote,
   deleteUserVote,
   getAllGroupsMap,
+  getGroup,
+  getActiveGroups,
   upsertGroup,
+  setGroupActive,
   loadUserVotesMap,
   saveUserVotesMap,
   exportJsonSnapshots,

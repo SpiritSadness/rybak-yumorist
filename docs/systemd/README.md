@@ -16,6 +16,14 @@ systemctl --user enable --now fishing-bot-watchdog.timer
 loginctl enable-linger "$USER"
 ```
 
+После установки или обновления:
+
+```bash
+npm run check:syntax
+npm run test:critical
+systemctl --user restart fishing-bot.service
+```
+
 ## Файлы
 
 | Файл | Назначение |

@@ -72,17 +72,20 @@ function createScreens(ctx) {
     const city = weatherService.getCity(cityId);
     ctx.lastWeatherCityByChat.set(chatId, city.id);
 
-    await ctx.renderAndRemember(
-      chatId,
-      messageId,
-      messages.formatLoading(`Погода: ${city.name}`),
-      ui.weatherCityKeyboard(city.id)
-    );
-
     if (forceRefresh) weatherService.clearWeatherCache(city.id);
+    const cachedWeather = forceRefresh ? null : weatherService.getCachedWeather(city.id);
+
+    if (!cachedWeather) {
+      await ctx.renderAndRemember(
+        chatId,
+        messageId,
+        messages.formatLoading(`Погода: ${city.name}`),
+        ui.weatherCityKeyboard(city.id)
+      );
+    }
 
     try {
-      const weather = await weatherService.getWeather(city.id, { forceRefresh });
+      const weather = cachedWeather || await weatherService.getWeather(city.id, { forceRefresh });
       return ctx.renderAndRemember(
         chatId,
         messageId || ctx.screenMessageByChat.get(chatId),

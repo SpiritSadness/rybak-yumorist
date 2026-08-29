@@ -1,31 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const database = require('./database');
 const { withTimeout } = require('../utils/withTimeout');
-
-const DB_FILE = path.join(__dirname, '..', 'data', 'groups.json');
-
-function ensureDb() {
-  const dir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ groups: {} }, null, 2), 'utf-8');
-  }
-}
-
-function readDb() {
-  ensureDb();
-  database.init();
-  return { groups: database.getAllGroupsMap() };
-}
-
-function writeDb(db) {
-  ensureDb();
-  database.init();
-  for (const group of Object.values(db.groups || {})) {
-    database.upsertGroup(group);
-  }
-}
 
 function isGroupChatId(chatId) {
   const id = Number(chatId);
@@ -34,10 +8,9 @@ function isGroupChatId(chatId) {
 
 function registerGroup({ chatId, title = '', addedBy = null, active = true }) {
   const key = String(chatId);
-  const db = readDb();
-  const existing = db.groups[key] || {};
+  const existing = database.getGroup(key) || {};
 
-  db.groups[key] = {
+  const group = {
     chatId: key,
     title: title || existing.title || '',
     addedBy: addedBy ?? existing.addedBy ?? null,
@@ -46,27 +19,25 @@ function registerGroup({ chatId, title = '', addedBy = null, active = true }) {
     updatedAt: new Date().toISOString()
   };
 
-  writeDb(db);
-  return db.groups[key];
+  database.upsertGroup(group);
+  return group;
 }
 
 function deactivateGroup(chatId) {
   const key = String(chatId);
-  const db = readDb();
-  if (!db.groups[key]) return null;
-
-  db.groups[key].active = false;
-  db.groups[key].updatedAt = new Date().toISOString();
-  writeDb(db);
-  return db.groups[key];
+  const existing = database.getGroup(key);
+  if (!existing) return null;
+  if (!existing.active) return existing;
+  database.setGroupActive(key, false);
+  return { ...existing, active: false, updatedAt: new Date().toISOString() };
 }
 
 function getGroup(chatId) {
-  return readDb().groups[String(chatId)] || null;
+  return database.getGroup(String(chatId));
 }
 
 function getActiveGroups() {
-  return Object.values(readDb().groups).filter((group) => group.active);
+  return database.getActiveGroups();
 }
 
 function resolveTargetGroupId(queryChatId) {

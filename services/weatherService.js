@@ -214,8 +214,17 @@ async function getWeather(cityId = 'kostroma', { forceRefresh = false } = {}) {
   return data;
 }
 
+function getCachedWeather(cityId = 'kostroma') {
+  const city = getCity(cityId);
+  const cached = cache.get(city.id);
+  if (!cached) return null;
+  if ((Date.now() - cached.time) >= CACHE_MS) return null;
+  return cached.data;
+}
+
 module.exports = {
   getWeather,
+  getCachedWeather,
   getCity,
   getCities,
   clearWeatherCache,

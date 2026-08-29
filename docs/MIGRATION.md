@@ -8,6 +8,8 @@
 cd ~/rybak-yumorist   # ваш каталог
 git pull
 npm install
+npm run check:syntax
+npm run test:critical
 ```
 
 ## 2. Дополнить `.env`
@@ -15,6 +17,10 @@ npm install
 Добавьте (если ещё нет):
 
 ```env
+HTTP_PROXY=http://user:pass@host:port
+TELEGRAM_RECONNECT_MS=60000
+TELEGRAM_POLL_STALE_MS=30000
+TELEGRAM_STARTUP_RETRY_MS=15000
 BACKUP_ROOT=/path/to/backups/rybak-yumorist
 BACKUP_NOTIFY_USERNAME=your_telegram_username
 # или

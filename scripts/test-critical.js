@@ -122,8 +122,73 @@ async function testAtomicVotesAndCallbacks() {
   ]);
   assert.strictEqual(maxActiveScreens, 1, 'screen edits for one message must be serialized');
 
+  const groupRegistry = require('../services/groupRegistry');
+  groupRegistry.registerGroup({ chatId: -100777, title: 'Test Group', active: true });
+  assert.strictEqual(groupRegistry.getGroup(-100777).title, 'Test Group');
+  assert.strictEqual(groupRegistry.getActiveGroups().some((group) => String(group.chatId) === '-100777'), true);
+  groupRegistry.deactivateGroup(-100777);
+  assert.strictEqual(groupRegistry.getGroup(-100777).active, false);
+
   database.checkpoint();
   fs.rmSync(tempDir, { recursive: true, force: true });
+}
+
+async function testWeatherScreenUsesCacheFastPath() {
+  const { createContext } = require('../bot/context');
+  const { createScreens } = require('../bot/screens');
+  const weatherService = require('../services/weatherService');
+
+  const originalGetCity = weatherService.getCity;
+  const originalGetCachedWeather = weatherService.getCachedWeather;
+  const originalGetWeather = weatherService.getWeather;
+
+  const renders = [];
+  const ctx = createContext();
+  ctx.renderAndRemember = async (chatId, messageId, text, keyboard) => {
+    renders.push({ chatId, messageId, text, keyboard });
+    return messageId || 55;
+  };
+
+  weatherService.getCity = () => ({ id: 'kostroma', name: 'Кострома' });
+  weatherService.getCachedWeather = () => ({
+    cityId: 'kostroma',
+    cityName: 'Кострома',
+    cityEmoji: '🏙️',
+    fetchedAt: '30.08.2026 02:00',
+    weatherDescription: '☀️ Ясно',
+    temperature: 20,
+    feelsLike: 21,
+    humidity: 50,
+    windSpeed: 2,
+    windDirection: 'С',
+    windStrengthDesc: 'Слабый',
+    pressure: 760,
+    pressureDesc: 'Нормальное',
+    precipitation: 0,
+    precipitationProbability: 0,
+    visibility: '>10',
+    cloudCover: 0,
+    cloudDesc: 'Ясно',
+    uvIndex: 1,
+    uvDesc: 'Низкий',
+    comfort: '🌤️ Комфортно',
+    isDay: true,
+    hourly: []
+  });
+  weatherService.getWeather = async () => {
+    throw new Error('cached weather path should not fetch network data');
+  };
+
+  try {
+    const screens = createScreens(ctx);
+    await screens.showWeatherCity(123, 77, 'kostroma', false);
+    assert.strictEqual(renders.length, 1, 'cached weather should render in one Telegram update');
+    assert(!String(renders[0].text).includes('Загружаю'), 'cached weather should skip loading screen');
+  } finally {
+    weatherService.getCity = originalGetCity;
+    weatherService.getCachedWeather = originalGetCachedWeather;
+    weatherService.getWeather = originalGetWeather;
+  }
 }
 
 function testRuntimeModulesLoad() {
@@ -135,6 +200,7 @@ function testRuntimeModulesLoad() {
 (async () => {
   await testSerializedPolling();
   await testAtomicVotesAndCallbacks();
+  await testWeatherScreenUsesCacheFastPath();
   testRuntimeModulesLoad();
   console.log('test-critical: OK');
 })().catch((error) => {

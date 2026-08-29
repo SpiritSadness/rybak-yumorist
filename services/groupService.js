@@ -32,12 +32,14 @@ async function isGroupAdmin(bot, groupChatId, userId) {
 
 async function canAccessPrivateInfo(bot, userId, queryChatId, targetGroupId) {
   if (!userId || !targetGroupId) return false;
-
-  if (String(queryChatId) === String(targetGroupId)) {
-    return isGroupMember(bot, targetGroupId, userId);
-  }
-
   return isGroupMember(bot, targetGroupId, userId);
+}
+
+async function getBotIdentity(bot) {
+  if (bot?._cachedMe?.id) return bot._cachedMe;
+  const me = await bot.getMe();
+  if (bot) bot._cachedMe = me;
+  return me;
 }
 
 async function verifyGroup(bot, chatId) {
@@ -60,7 +62,7 @@ async function verifyGroup(bot, chatId) {
 
   try {
     const chat = await bot.getChat(key);
-    const me = await bot.getMe();
+    const me = await getBotIdentity(bot);
     const member = await bot.getChatMember(key, me.id);
     const canSend = ['administrator', 'creator', 'member'].includes(member.status);
 
