@@ -1,98 +1,58 @@
-# Рыбак Юморист
+# Рыбак Юморист 🐟
 
-Telegram-бот с рыбацкими анекдотами, погодой и авторассылкой в группы.
+Telegram-бот с **анекдотами про рыбалку** и **погодой**. Можно пользоваться в личке или добавить в группу — тогда анекдоты будут приходить сами по расписанию.
 
-Бот в Telegram: [@fishingHumorousBot](https://t.me/fishingHumorousBot)
+👉 **Открыть бота:** [@fishingHumorousBot](https://t.me/fishingHumorousBot)
 
-**English:** [README.en.md](./README.en.md)
+---
+
+## Как пользоваться (в Telegram)
+
+1. Нажми **Start** или `/start`
+2. Выбирай кнопки под сообщением:
+   - **🎣 Анекдот** — случайная шутка
+   - **☀️ Погода** — Кострома и Макарьев
+   - **🏆 Топ шуток** — лучшие по голосам
+   - **❓ Помощь** — инструкция и статус группы
+3. На анекдоте можно нажать **👍** или **👎**
+4. Команды: `/start` — меню, `/help` — помощь
+
+---
+
+## Добавить бота в группу
+
+1. Найди [@fishingHumorousBot](https://t.me/fishingHumorousBot)
+2. Добавь в **свою** группу
+3. Сделай бота **админом** (или разреши писать сообщения)
+4. В группе нажми `/start`
+5. Проверь: **❓ Помощь → 📊 Статус** — должно быть 🟢
+
+**Когда шлёт анекдоты в группу (по Москве):**  
+04:00 · 07:00 · 09:00 · 14:00 · 18:00 · 23:00
+
+---
 
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/screenshots/menu.svg" alt="Главное меню бота" width="320" />
-  <img src="docs/screenshots/joke.svg" alt="Экран анекдота" width="320" />
+  <img src="docs/screenshots/menu.svg" alt="Меню бота" width="300" />
+  <img src="docs/screenshots/joke.svg" alt="Анекдот" width="300" />
 </p>
 
-*UI-макеты для README; в Telegram интерфейс может немного отличаться.*
+---
 
-## Возможности
+## Для тех, кто хочет запустить бота у себя
 
-- Анекдоты про рыбалку (пул + обновление с anekdot.ru)
-- Лайки / дизлайки и топ шуток
-- Погода (Кострома, Макарьев) через Open-Meteo
-- Подключение к группам и расписание рассылки (МСК): 04 · 07 · 09 · 14 · 18 · 23
-- SQLite-хранилище, бэкапы и watchdog для продакшена
+Это уже для **разработчиков / админов** — обычным пользователям не нужно.
 
-## Стек
+Кратко: Node.js 18+, токен от [@BotFather](https://t.me/BotFather), файл `.env`, команда `npm start`.
 
-- Node.js 18+
-- `node-telegram-bot-api`
-- `better-sqlite3`
-- Cheerio (скрапинг), Axios, dotenv
+Подробно: [docs/DEVELOPERS.md](./docs/DEVELOPERS.md)
 
-## Быстрый старт
-
-```bash
-cp .env.example .env
-# Заполни BOT_TOKEN (от @BotFather)
-npm install
-npm start
-```
-
-Полезные скрипты:
-
-| Команда | Назначение |
-|---------|------------|
-| `npm start` | Запуск бота |
-| `npm run check:connection` | Проверка токена / сети |
-| `npm run set:commands` | Обновить команды в Telegram |
-| `npm run check:syntax` | Проверка синтаксиса JS |
-| `./botctl.sh` | Меню управления (Linux + systemd) |
-
-## Переменные окружения
-
-См. `.env.example`.
-
-| Переменная | Описание |
-|------------|----------|
-| `BOT_TOKEN` | Токен бота (обязательно) |
-| `CHAT_ID` | Legacy-чат (опционально) |
-| `SOCKS_PROXY` | Прокси для Telegram / сети |
-| `BACKUP_NOTIFY_USERNAME` | Кому слать отчёты бэкапа/watchdog |
-| `BACKUP_NOTIFY_CHAT_ID` | Или chat id вместо username |
-| `BACKUP_ROOT` | Корень бэкапов (по умолчанию `~/backups/rybak-yumorist`) |
-
-Секреты только в `.env`. Каталог `data/` в git не попадает.
-
-## Структура
-
-```
-bot/         запуск, экраны, планировщик
-handlers/    команды и callback
-services/    БД, шутки, погода, группы
-config/      расписание, города, источники
-scripts/     бэкап, watchdog, утилиты
-utils/       UI, логи, прокси
-docs/        systemd, миграция, скриншоты
-```
-
-## Продакшен
-
-- [PRODUCTION.md](./PRODUCTION.md) — ops-чеклист
-- [docs/systemd/](./docs/systemd/) — примеры unit-файлов
-- [docs/MIGRATION.md](./docs/MIGRATION.md) — после `git pull` на сервере
-- [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) — ошибки бэкапа / алерты после смены сервера
-
-## Замечания
-
-- Подписчики анекдотов и голоса хранятся локально; при переносе сервера нужен бэкап `data/`.
-- Источник шуток — внешний сайт; доступность зависит от сети.
-- Не коммить `.env`, логи и базу.
-
-## CI
-
-GitHub Actions проверяет синтаксис всех `.js` при push/PR.
+---
 
 ## Лицензия
 
-[MIT](./LICENSE) — можно использовать и копировать с указанием автора **Andrey Zabrodin**.
+[MIT](./LICENSE) — код можно использовать с указанием автора **Andrey Zabrodin**.
+
+English: [README.en.md](./README.en.md)

@@ -1,42 +1,30 @@
-# Fishing Humor Bot (Ryback Yumorist)
+# Fishing Humor Bot 🐟
 
-Telegram bot with fishing jokes, weather, and scheduled group broadcasts.
+Telegram bot with **fishing jokes** and **weather**. Use in private chat or add to a group for scheduled jokes.
 
-Bot: [@fishingHumorousBot](https://t.me/fishingHumorousBot)
+👉 **Open bot:** [@fishingHumorousBot](https://t.me/fishingHumorousBot)
 
-**Russian docs:** [README.md](./README.md)
+## How to use
 
-## Features
+1. Tap **Start** or `/start`
+2. Use the buttons: Joke, Weather, Top jokes, Help
+3. Like/dislike jokes with 👍 / 👎
 
-- Fishing jokes (pool + refresh from anekdot.ru)
-- Likes / dislikes and top jokes
-- Weather (Kostroma, Makaryev) via Open-Meteo
-- Group integration and MSK schedule: 04 · 07 · 09 · 14 · 18 · 23
-- SQLite storage, backups, watchdog for production
+## Add to a group
 
-## Stack
+1. Add [@fishingHumorousBot](https://t.me/fishingHumorousBot) to your group
+2. Make it admin (or allow sending messages)
+3. Send `/start` in the group
+4. Check **Help → Status**
 
-Node.js 18+, `node-telegram-bot-api`, `better-sqlite3`, Cheerio, Axios, dotenv
+**Joke schedule (MSK):** 04 · 07 · 09 · 14 · 18 · 23
 
-## Quick start
+## For developers
 
-```bash
-cp .env.example .env
-# Set BOT_TOKEN from @BotFather
-npm install
-npm start
-```
-
-## Environment
-
-See `.env.example`. Secrets stay in `.env` only; `data/` is gitignored.
-
-## Production
-
-- [PRODUCTION.md](./PRODUCTION.md)
-- [docs/systemd/](./docs/systemd/) — example user units
-- [docs/MIGRATION.md](./docs/MIGRATION.md) — after pulling cleanup changes
+See [docs/DEVELOPERS.md](./docs/DEVELOPERS.md)
 
 ## License
 
 [MIT](./LICENSE) — reuse with attribution to **Andrey Zabrodin**.
+
+Russian: [README.md](./README.md)
