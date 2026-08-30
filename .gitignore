@@ -5,4 +5,5 @@ logs/
 backups/
 .staging.*
 data/
+assets/
 .DS_Store
