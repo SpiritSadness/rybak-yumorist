@@ -6,7 +6,9 @@ const jokeProgressService = require('../services/jokeProgressService');
 const weatherService = require('../services/weatherService');
 const groupService = require('../services/groupService');
 const groupRegistry = require('../services/groupRegistry');
+const welcomeImageService = require('../services/welcomeImageService');
 const scheduleConfig = require('../config/schedule');
+const { withTimeout } = require('../utils/withTimeout');
 
 function createScreens(ctx) {
   async function prepareGroupContext(queryChatId, userId) {
@@ -31,12 +33,35 @@ function createScreens(ctx) {
     }
 
     const editId = forceNew ? null : (messageId ?? ctx.screenMessageByChat.get(chatId));
+    const text = messages.formatWelcome({ inGroup });
+    const keyboard = ui.mainMenuKeyboard();
+
+    if (!editId) {
+      const image = welcomeImageService.createWelcomeImageStream();
+      if (image) {
+        try {
+          const sent = await withTimeout(
+            ctx.bot.sendPhoto(chatId, image, {
+              caption: text,
+              parse_mode: 'HTML',
+              reply_markup: keyboard
+            }),
+            8000,
+            'sendPhoto welcome'
+          );
+          if (sent?.message_id) ctx.screenMessageByChat.set(chatId, sent.message_id);
+          return sent?.message_id || null;
+        } catch (error) {
+          logger.warn('Welcome image fallback:', error.message);
+        }
+      }
+    }
 
     return ctx.renderAndRemember(
       chatId,
       editId,
-      messages.formatWelcome({ inGroup }),
-      ui.mainMenuKeyboard()
+      text,
+      keyboard
     );
   }
 

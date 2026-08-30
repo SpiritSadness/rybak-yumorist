@@ -68,6 +68,7 @@ async function testAtomicVotesAndCallbacks() {
   let callbackAnswers = 0;
   let activeScreens = 0;
   let maxActiveScreens = 0;
+  let gamesHubShown = 0;
   const bot = {
     on(event, listener) {
       listeners.set(event, listener);
@@ -97,6 +98,9 @@ async function testAtomicVotesAndCallbacks() {
     async showTop() {},
     async showHelpMenu() {},
     async showAbout() {},
+    async showGamesHub() {
+      gamesHubShown += 1;
+    },
     async showWeatherCity() {},
     async showHelpStatus() {},
     async showHelpSetup() {}
@@ -121,6 +125,16 @@ async function testAtomicVotesAndCallbacks() {
     callback({ id: 'menu-2', data: 'menu', message: { message_id: 5, chat: { id: -100 } } })
   ]);
   assert.strictEqual(maxActiveScreens, 1, 'screen edits for one message must be serialized');
+
+  const answersBeforeGame = callbackAnswers;
+  await callback({
+    id: 'games-1',
+    data: 'games',
+    from: { id: 100, first_name: 'Tester' },
+    message: { message_id: 5, chat: { id: -100 } }
+  });
+  assert.strictEqual(callbackAnswers - answersBeforeGame, 1, 'game callback must be answered exactly once');
+  assert.strictEqual(gamesHubShown, 1, 'games callback must open the games hub');
 
   const groupRegistry = require('../services/groupRegistry');
   groupRegistry.registerGroup({ chatId: -100777, title: 'Test Group', active: true });
@@ -192,7 +206,16 @@ async function testWeatherScreenUsesCacheFastPath() {
 }
 
 function testRuntimeModulesLoad() {
+  const ui = require('../utils/telegramUi');
+  const menuButtons = ui.mainMenuKeyboard().inline_keyboard.flat();
+  assert(menuButtons.some((button) => button.callback_data === 'games'), 'main menu must include games');
+  assert(ui.scheduledJokeKeyboard({ id: 1 }).inline_keyboard.length > 0, 'scheduled photo must include controls');
+
   assert.doesNotThrow(() => require('../bot/startup'));
+  assert.doesNotThrow(() => require('../bot/gameScreens'));
+  assert.doesNotThrow(() => require('../handlers/games'));
+  assert.doesNotThrow(() => require('../services/gameService'));
+  assert.doesNotThrow(() => require('../services/gameScoreService'));
   assert.doesNotThrow(() => require('../services/scheduleImageService'));
   assert.doesNotThrow(() => require('../services/scheduleImageServiceLegacy'));
 }

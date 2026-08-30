@@ -3,13 +3,39 @@ const ui = require('../utils/telegramUi');
 const jokeRepo = require('../services/jokeRepo');
 const groupRegistry = require('../services/groupRegistry');
 const schedulerService = require('../services/schedulerService');
+const scheduleImageService = require('../services/scheduleImageService');
 const scheduleConfig = require('../config/schedule');
+
+const CAPTION_MAX = 1024;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createScheduler(ctx) {
+  async function sendScheduledPost(chatId, hour, label, joke) {
+    const header = `🎯 <b>${ui.escapeHtml(label)}</b>\n\n`;
+    const body = ui.truncate(ui.stripHtmlTags(joke.text), CAPTION_MAX - header.length - 1);
+    const caption = `${header}${ui.escapeHtml(body)}`;
+    const keyboard = ui.scheduledJokeKeyboard(joke);
+    const image = await scheduleImageService.ensureImageStream(hour);
+
+    if (image) {
+      await ctx.bot.sendPhoto(chatId, image, {
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+      return 'photo';
+    }
+
+    await ctx.bot.sendMessage(chatId, caption, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+    return 'text';
+  }
+
   async function sendScheduledJokes(slot) {
     const groups = groupRegistry.getActiveGroups();
     if (!groups.length) {
@@ -36,11 +62,9 @@ function createScheduler(ctx) {
       }
 
       try {
-        await ctx.bot.sendMessage(group.chatId, `🎯 <b>${label}</b>\n\n${ui.escapeHtml(joke.text)}`, {
-          parse_mode: 'HTML'
-        });
+        const kind = await sendScheduledPost(group.chatId, hour, label, joke);
         sentAny = true;
-        logger.info('Scheduled joke sent:', group.title || group.chatId, label);
+        logger.info('Scheduled joke sent:', group.title || group.chatId, label, kind);
       } catch (error) {
         logger.error('Scheduled joke failed:', group.chatId, error.message);
         if (/chat not found|bot was kicked|Forbidden/i.test(error.message || '')) {

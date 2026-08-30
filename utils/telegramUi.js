@@ -34,6 +34,7 @@ function mainMenuKeyboard() {
         { text: '📅 Расписание', callback_data: 'schedule' },
         { text: '🔥 Топ шуток', callback_data: 'top' }
       ],
+      [{ text: '🎮 Игры', callback_data: 'games' }],
       [
         { text: '❓ Помощь', callback_data: 'help' },
         { text: 'ℹ️ О боте', callback_data: 'about' }
@@ -66,6 +67,22 @@ function jokeKeyboard(joke) {
       ],
       [{ text: '🔄 Ещё анекдот', callback_data: 'joke' }],
       [{ text: '🏠 Меню', callback_data: 'menu' }]
+    ]
+  };
+}
+
+function scheduledJokeKeyboard(joke) {
+  if (!joke?.id) return null;
+  return {
+    inline_keyboard: [
+      [
+        { text: `👍 ${joke.likes || 0}`, callback_data: `like:${joke.id}` },
+        { text: `👎 ${joke.dislikes || 0}`, callback_data: `dislike:${joke.id}` }
+      ],
+      [
+        { text: '🎣 Ещё анекдот', callback_data: 'joke' },
+        { text: '🎮 Игры', callback_data: 'games' }
+      ]
     ]
   };
 }
@@ -147,6 +164,11 @@ function isEditUnavailableError(error) {
   return /message to edit not found|message can't be edited|MESSAGE_ID_INVALID/i.test(msg);
 }
 
+function isCaptionMessageError(error) {
+  const msg = String(error?.message || error || '');
+  return /there is no text in the message to edit/i.test(msg);
+}
+
 async function renderScreen(bot, { chatId, messageId, text, keyboard }) {
   const body = truncate(text);
 
@@ -165,6 +187,24 @@ async function renderScreen(bot, { chatId, messageId, text, keyboard }) {
       return messageId;
     } catch (error) {
       if (isNotModifiedError(error)) return messageId;
+      if (isCaptionMessageError(error) && typeof bot.editMessageCaption === 'function') {
+        try {
+          await withTimeout(
+            bot.editMessageCaption(truncate(body, 1000), {
+              chat_id: chatId,
+              message_id: messageId,
+              parse_mode: 'HTML',
+              reply_markup: keyboard
+            }),
+            TELEGRAM_SEND_MS,
+            'editMessageCaption'
+          );
+          return messageId;
+        } catch (captionError) {
+          if (isNotModifiedError(captionError)) return messageId;
+          loggerFallback(captionError);
+        }
+      }
       if (!isEditUnavailableError(error)) loggerFallback(error);
     }
   }
@@ -202,6 +242,7 @@ module.exports = {
   mainMenuKeyboard,
   subMenuKeyboard,
   jokeKeyboard,
+  scheduledJokeKeyboard,
   weatherMenuKeyboard,
   weatherCityKeyboard,
   refreshKeyboard,

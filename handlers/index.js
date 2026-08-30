@@ -1,6 +1,7 @@
 const logger = require('../utils/logger');
 const groupRegistry = require('../services/groupRegistry');
 const { createVoteHandler } = require('./votes');
+const { isGameAction, handleGameCallback } = require('./games');
 
 const { withTimeout } = require('../utils/withTimeout');
 
@@ -97,9 +98,14 @@ function setupHandlers(ctx, screens) {
 
     // One callback query must be answered exactly once. Screen rendering runs
     // concurrently, so the Telegram spinner is cleared as early as possible.
-    const ackOptions = action?.startsWith('like:') || action?.startsWith('dislike:')
-      ? { text: 'Сохраняю голос…' }
-      : undefined;
+    let ackOptions;
+    if (action?.startsWith('like:') || action?.startsWith('dislike:')) {
+      ackOptions = { text: 'Сохраняю голос…' };
+    } else if (action?.startsWith('gm:')) {
+      ackOptions = { text: '🎮 Поехали!' };
+    } else if (action?.startsWith('ga:')) {
+      ackOptions = { text: 'Проверяю ответ…' };
+    }
     void ctx.bot.answerCallbackQuery(query.id, ackOptions).catch((error) => {
       logger.warn('answerCallbackQuery failed:', error.message);
     });
@@ -107,6 +113,11 @@ function setupHandlers(ctx, screens) {
     logger.info('callback:', action, 'chat:', chatId);
 
     if (!chatId || !messageId || typeof action !== 'string') {
+      return;
+    }
+
+    if (isGameAction(action)) {
+      await enqueueScreen(chatId, messageId, () => handleGameCallback(ctx, screens, query));
       return;
     }
 

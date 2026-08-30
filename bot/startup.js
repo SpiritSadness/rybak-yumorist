@@ -7,6 +7,7 @@ const scheduleImageService = require('../services/scheduleImageService');
 const { connectBot, startUpdates } = require('./connect');
 const { createContext } = require('./context');
 const { createScreens } = require('./screens');
+const { createGameScreens } = require('./gameScreens');
 const { createScheduler } = require('./scheduler');
 const { registerRuntimeHandlers } = require('./runtime');
 const { setupHandlers } = require('../handlers');
@@ -39,7 +40,10 @@ async function startBot() {
   }
 
   const ctx = createContext();
-  const screens = createScreens(ctx);
+  const screens = {
+    ...createScreens(ctx),
+    ...createGameScreens(ctx)
+  };
   const scheduler = createScheduler(ctx);
 
   ctx.replaceBot = async () => {
