@@ -20,7 +20,7 @@
     "ops:enable": "bash scripts/ops-enable.sh"
   },
   "dependencies": {
-    "axios": "^1.7.7",
+    "axios": "^1.18.0",
     "better-sqlite3": "^11.10.0",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.5",
