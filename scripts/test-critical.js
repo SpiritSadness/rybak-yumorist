@@ -65,15 +65,19 @@ async function testAtomicVotesAndCallbacks() {
   assert.strictEqual(database.loadUserVotesMap().size, 0);
 
   const listeners = new Map();
+  const textListeners = [];
   let callbackAnswers = 0;
   let activeScreens = 0;
   let maxActiveScreens = 0;
   let gamesHubShown = 0;
+  let startForcedNew = false;
   const bot = {
     on(event, listener) {
       listeners.set(event, listener);
     },
-    onText() {},
+    onText(pattern, listener) {
+      textListeners.push({ pattern, listener });
+    },
     async answerCallbackQuery() {
       callbackAnswers += 1;
     }
@@ -86,7 +90,8 @@ async function testAtomicVotesAndCallbacks() {
   };
   const screens = {
     async showJokeScreen() {},
-    async showMenu() {
+    async showMenu(chatId, messageId, options = {}) {
+      if (messageId == null && options.forceNew) startForcedNew = true;
       activeScreens += 1;
       maxActiveScreens = Math.max(maxActiveScreens, activeScreens);
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -110,6 +115,11 @@ async function testAtomicVotesAndCallbacks() {
   setupHandlers(ctx, screens);
   const callback = listeners.get('callback_query');
   assert(callback, 'callback_query handler must be registered');
+
+  const startHandler = textListeners.find(({ pattern }) => pattern.test('/start'))?.listener;
+  assert(startHandler, '/start handler must be registered');
+  await startHandler({ chat: { id: -100 }, from: { username: 'tester' } });
+  assert.strictEqual(startForcedNew, true, '/start must always send a fresh menu');
 
   await callback({
     id: 'vote-1',

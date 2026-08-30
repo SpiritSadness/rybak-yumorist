@@ -70,7 +70,7 @@ function setupHandlers(ctx, screens) {
     startInFlight.add(chatId);
     try {
       const messageId = await withTimeout(
-        screens.showMenu(chatId, null, { forceNew: false }),
+        screens.showMenu(chatId, null, { forceNew: true }),
         20000,
         '/start showMenu'
       );
