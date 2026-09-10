@@ -1,36 +1,56 @@
-# systemd (user units)
+# systemd
 
-Примеры unit-файлов для Linux. Пути — плейсхолдеры: замени `%h/rybak-yumorist` на свой каталог проекта.
+## Прод (VPS) — system unit
 
-## Установка
+На сервере бот уже ставится как **system** service (`/etc/systemd/system/fishing-bot.service`), не user:
+
+```ini
+[Unit]
+Description=Telegram bot «Рыбак Юморист»
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fishing-bot
+EnvironmentFile=/opt/fishing-bot/.env
+ExecStart=/usr/bin/node bot.js
+Restart=always
+RestartSec=15
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl enable --now fishing-bot
+systemctl restart fishing-bot
+journalctl -u fishing-bot -f
+```
+
+Не запускай второй экземпляр на ноутбуке с тем же `BOT_TOKEN`.
+
+## Legacy — user units (домашний ПК)
+
+Файлы в этой папке — для лабораторного запуска через `systemctl --user`.  
+Для текущего прода **не используй**: прод только на VPS.
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp docs/systemd/*.service docs/systemd/*.timer ~/.config/systemd/user/
-# Отредактируй WorkingDirectory и пути в .service при необходимости
+# Отредактируй WorkingDirectory
 systemctl --user daemon-reload
-systemctl --user enable --now fishing-bot.service
-systemctl --user enable --now fishing-bot-backup.timer
-systemctl --user enable --now fishing-bot-backup-weekly.timer
-systemctl --user enable --now fishing-bot-watchdog.timer
-loginctl enable-linger "$USER"
+# Только если VPS бот остановлен:
+# systemctl --user enable --now fishing-bot.service
 ```
-
-После установки или обновления:
-
-```bash
-npm run check:syntax
-npm run test:critical
-systemctl --user restart fishing-bot.service
-```
-
-## Файлы
 
 | Файл | Назначение |
 |------|------------|
-| `fishing-bot.service` | Основной процесс бота |
-| `fishing-bot-backup.timer` + `.service` | Ежедневный бэкап 03:00 |
-| `fishing-bot-backup-weekly.timer` + `.service` | Еженедельный бэкап воскресенье 03:15 |
-| `fishing-bot-watchdog.timer` + `.service` | Проверка каждые ~3 мин |
+| `fishing-bot.service` | Процесс бота |
+| `fishing-bot-backup.timer` + `.service` | Ежедневный бэкап |
+| `fishing-bot-backup-weekly.timer` + `.service` | Еженедельный бэкап |
+| `fishing-bot-watchdog.timer` + `.service` | Watchdog |
 
-Подробнее: [PRODUCTION.md](../PRODUCTION.md)
+Подробнее: [PRODUCTION.md](../../PRODUCTION.md)

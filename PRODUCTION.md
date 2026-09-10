@@ -1,96 +1,84 @@
 # Production — Рыбак Юморист
 
-Чеклист для эксплуатации бота на Linux (systemd user).
+**Прод крутится только на VPS.** Ноутбук не запускает бота (локальный systemd unit должен быть masked/выключен).
 
-## Сервисы systemd (user)
+| | |
+|---|---|
+| Хост | `andreyzabrodin1440p.fvds.ru` (`188.120.235.19`) |
+| Каталог | `/opt/fishing-bot` |
+| Unit | `fishing-bot.service` (system, не user) |
+| Бот | [@fishingHumorousBot](https://t.me/fishingHumorousBot) |
+| Расписание (MSK) | 04 · 07 · 09 · 14 · 18 · 23 |
 
-| Юнит | Назначение |
-|------|------------|
-| `fishing-bot.service` | Основной процесс бота |
-| `fishing-bot-backup.timer` | Ежедневный бэкап |
-| `fishing-bot-backup-weekly.timer` | Еженедельный полный бэкап |
-| `fishing-bot-watchdog.timer` | Проверка процесса, алерт в Telegram |
+Секреты и SSH: Bitwarden → `Rybak - prod VPS .env`, `VPS SSH - kadr-deploy`.
 
-Включить watchdog (один раз):
+## Проверка
 
 ```bash
-systemctl --user enable --now fishing-bot-watchdog.timer
+ssh root@188.120.235.19 'systemctl is-active fishing-bot; journalctl -u fishing-bot -n 40 --no-pager'
 ```
 
-Автозапуск без GUI:
+## Прокси
+
+Telegram с VPS идёт через прокси в `/opt/fishing-bot/.env`:
+
+- Предпочтительно: `SOCKS_PROXY=socks5://USER:PASS@HOST:PORT`
+- На Proxy6 HTTP на том же порту часто стабильнее long-poll — код сам пробует HTTP, затем SOCKS
+- Не оставляй мёртвый `HTTP_PROXY` без рабочих кредов (будет 407 / таймауты)
+
+## Обновление кода на VPS
 
 ```bash
-loginctl enable-linger "$USER"
+ssh root@188.120.235.19 '
+  cd /opt/fishing-bot
+  git pull --ff-only origin main
+  npm install --omit=dev
+  npm run check:syntax
+  npm run test:critical
+  systemctl restart fishing-bot
+  sleep 3
+  systemctl is-active fishing-bot
+  journalctl -u fishing-bot -n 30 --no-pager
+'
 ```
 
-## Управление
+`.env` на сервере **не в git** — после pull не затирай.
 
-- Панель: `./botctl.sh`
-- Не запускай `npm start` параллельно с systemd — будет конфликт 409
-- Перезапуск: `./botctl.sh restart`
-- После правок перед рестартом: `npm run check:syntax && npm run test:critical`
+## Данные на VPS
 
-## Данные
+- SQLite: `/opt/fishing-bot/data/bot.db`
+- Планировщик: `/opt/fishing-bot/data/scheduler-state.json`
+- Логи: `journalctl -u fishing-bot` и `/opt/fishing-bot/logs/`
 
-- SQLite: `data/bot.db`
-- JSON-снимки в `data/` для бэкапов
-- Состояние планировщика: `data/scheduler-state.json`
+## Бэкапы / watchdog (опционально)
 
-## Бэкапы
+По умолчанию на проде можно держать выключенными (`BACKUP_ENABLED=false`, `WATCHDOG_ENABLED=false`), чтобы не спамить.
 
-По умолчанию корень: `~/backups/rybak-yumorist`  
-Переопределение: `BACKUP_ROOT=/path` в окружении / `.env`.
+Включить: правь `.env`, затем `bash scripts/ops-enable.sh` и timer’ы из `docs/systemd/` (адаптируй пути под `/opt/fishing-bot`, system unit от root).
 
-Зеркало (опционально): `BACKUP_MIRROR_PATH=/path`
-
-Отчёты в Telegram: задай `BACKUP_NOTIFY_USERNAME` или `BACKUP_NOTIFY_CHAT_ID`.
+## Локальная машина (только разработка)
 
 ```bash
-npm run backup:verify
-```
-
-## Мониторинг
-
-Watchdog шлёт алерт получателю из `BACKUP_NOTIFY_*`, если сервис не active.  
-Повтор не чаще чем раз в 30 мин (`WATCHDOG_COOLDOWN_MS`).
-
-## Обновление кода
-
-```bash
-cd /path/to/rybak-yumorist
-git pull
+cp .env.example .env   # BOT_TOKEN + SOCKS_PROXY
 npm install
 npm run check:syntax
 npm run test:critical
-systemctl --user restart fishing-bot.service
-journalctl --user -u fishing-bot.service -n 50 --no-pager
+# НЕ держи локальный polling параллельно с VPS — конфликт 409
 ```
+
+Примеры unit-файлов (legacy / home lab): [docs/systemd/README.md](./docs/systemd/README.md)  
+Миграции: [docs/MIGRATION.md](./docs/MIGRATION.md)
 
 ## Переменные окружения
 
 | Переменная | Описание |
 |------------|----------|
 | `BOT_TOKEN` | Токен Telegram-бота |
-| `BACKUP_NOTIFY_USERNAME` | Кому слать отчёты |
-| `BACKUP_NOTIFY_CHAT_ID` | Или числовой chat id |
-| `BACKUP_ROOT` | Корень бэкапов |
-| `BACKUP_MIRROR_PATH` | Зеркало бэкапов |
-| `WATCHDOG_COOLDOWN_MS` | Интервал между алертами |
-| `HTTP_PROXY` | HTTP-прокси для Telegram/API |
+| `CHAT_ID` | Основная группа (опционально) |
+| `SOCKS_PROXY` | SOCKS5-прокси (основной для прода) |
+| `HTTP_PROXY` | HTTP-прокси (если нужен вместо/вместе) |
+| `SCHEDULE_BACKFILL` | Догонять пропущенные слоты при старте |
+| `BACKUP_ENABLED` / `WATCHDOG_ENABLED` / `TELEGRAM_NOTIFY_ENABLED` | Ops-алерты |
+| `BACKUP_NOTIFY_USERNAME` / `BACKUP_NOTIFY_CHAT_ID` | Кому слать отчёты |
 | `TELEGRAM_RECONNECT_MS` | Интервал reconnect health-check |
-| `TELEGRAM_POLL_STALE_MS` | Когда polling считается зависшим |
-| `TELEGRAM_STARTUP_RETRY_MS` | Задержка между retry на старте |
 | `SCHEDULE_CATCHUP_MINUTES` | Окно догоняющей рассылки |
-| `SCHEDULE_QUIET_AFTER_HOUR` | После какого часа не догонять дневные слоты |
-| `SCHEDULE_BACKFILL` | Включать ли backfill при старте |
-| `OUTBOX_RETRY_MS` | Интервал retry очереди исходящих |
-
-## Git / CI
-
-```bash
-node scripts/check-syntax.js
-node scripts/test-critical.js
-```
-
-Примеры systemd: [docs/systemd/README.md](./docs/systemd/README.md)  
-Миграция после обновления: [docs/MIGRATION.md](./docs/MIGRATION.md)

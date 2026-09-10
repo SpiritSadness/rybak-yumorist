@@ -45,9 +45,10 @@ Telegram-бот с **анекдотами про рыбалку** и **пого�
 
 Это уже для **разработчиков / админов** — обычным пользователям не нужно.
 
-Кратко: Node.js 18+, токен от [@BotFather](https://t.me/BotFather), файл `.env`, команда `npm start`.
+Кратко: Node.js 18+, токен от [@BotFather](https://t.me/BotFather), файл `.env`, прокси, команда `npm start`.
 
-Подробно: [docs/DEVELOPERS.md](./docs/DEVELOPERS.md)
+**Прод этого бота:** только VPS (`/opt/fishing-bot`). Не гоняй polling с двух машин — будет 409.  
+Эксплуатация: [PRODUCTION.md](./PRODUCTION.md) · разработчикам: [docs/DEVELOPERS.md](./docs/DEVELOPERS.md)
 
 ---
 

@@ -1,6 +1,7 @@
 node_modules/
 logs/
 .env
+.env.bak*
 *.log
 backups/
 .staging.*
@@ -8,3 +9,5 @@ data/
 assets/*
 !assets/welcome-banner.png
 .DS_Store
+.cursor/
+youtube-pilot/
